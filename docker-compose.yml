@@ -1,0 +1,17 @@
+version: '3'
+
+services:
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - model_data:/app/model
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8080
+    restart: unless-stopped
+
+volumes:
+  model_data:
+    driver: local 

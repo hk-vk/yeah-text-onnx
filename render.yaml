@@ -1,0 +1,16 @@
+services:
+  # A Docker web service
+  - type: web
+    name: malayalam-text-api
+    env: docker
+    repo: https://github.com/yeah-ya/text-onnnx
+    region: ohio
+    plan: free
+    branch: main
+    numInstances: 1
+    healthCheckPath: /
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: PORT
+        value: 8080 
