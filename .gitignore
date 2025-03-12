@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Project specific
+# Exclude large model files
+model/malayalam_model1.onnx
+# Keep other model files like tokenizer
+!model/
+!model/config.json
+!model/tokenizer.json
+!model/vocab.txt
+.env
+*.log
+.DS_Store
