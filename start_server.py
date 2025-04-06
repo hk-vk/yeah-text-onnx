@@ -1,7 +1,7 @@
 """
 Malayalam Fake News Detection API Server Launcher
 ------------------------------------------------
-This script starts the FastAPI server on localhost:8080
+This script starts the FastAPI server on the specified host and port
 """
 
 import os
@@ -9,11 +9,11 @@ import sys
 import subprocess
 
 # Server configuration
-HOST = "127.0.0.1"  # localhost
-PORT = 8080
+HOST = os.getenv("HOST", "0.0.0.0")  # Use environment variable or default to 0.0.0.0
+PORT = int(os.getenv("PORT", 8080))  # Use environment variable or default to 8080
 
 def start_server():
-    """Start the FastAPI server on localhost:8080"""
+    """Start the FastAPI server"""
     print(f"Starting Malayalam Fake News Detection API on http://{HOST}:{PORT}")
     print("=" * 60)
     print("API will be available at:")
@@ -45,4 +45,4 @@ if __name__ == "__main__":
         sys.exit(1)
         
     # Start the server
-    start_server() 
+    start_server()

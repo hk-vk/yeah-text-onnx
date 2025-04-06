@@ -3,7 +3,7 @@ services:
   - type: web
     name: malayalam-text-api
     env: docker
-    repo: https://github.com/yeah-ya/text-onnnx
+    repo: https://github.com/yeah-ya/yeah-text-onnx
     region: ohio
     plan: free
     branch: main
@@ -13,4 +13,4 @@ services:
       - key: HOST
         value: 0.0.0.0
       - key: PORT
-        value: 8080 
+        value: 8080

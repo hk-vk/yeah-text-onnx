@@ -10,8 +10,8 @@ import sys
 import importlib.util
 
 # Server configuration
-HOST = "127.0.0.1"
-PORT = 8080
+HOST = os.getenv("HOST", "0.0.0.0")  # Default to 0.0.0.0 for production
+PORT = int(os.getenv("PORT", 8080))
 
 app = FastAPI(
     title="Malayalam Text Classification API",
@@ -169,4 +169,4 @@ async def root():
 if __name__ == "__main__":
     import uvicorn
     print(f"Starting server on http://{HOST}:{PORT}")
-    uvicorn.run(app, host=HOST, port=PORT, reload=True) 
+    uvicorn.run(app, host=HOST, port=PORT, reload=True)
