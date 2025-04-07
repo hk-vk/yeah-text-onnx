@@ -151,24 +151,39 @@ async def predict(request: TextRequest):
             'token_type_ids': inputs.get('token_type_ids', torch.zeros_like(inputs['input_ids'])).cpu().numpy()
         }
         
+        # Explicitly delete PyTorch tensors to free memory sooner
+        del inputs
+        gc.collect() # Add another GC call after deletion
+        
         # Run inference
         ort_outputs = ort_session.run(None, ort_inputs)
         
         # Process the output
         logits = ort_outputs[0]
-        probabilities = np.exp(logits) / np.sum(np.exp(logits), axis=1, keepdims=True)
+        # Convert logits directly to float for calculations if possible
+        # This avoids keeping the potentially large numpy array around longer than needed
+        probabilities = np.exp(logits.astype(np.float32)) / np.sum(np.exp(logits.astype(np.float32)), axis=1, keepdims=True)
         predicted_class = int(np.argmax(probabilities, axis=1)[0])
         predicted_probability = float(probabilities[0, predicted_class])
         
-        # Clear memory after inference
-        gc.collect()
+        # Explicitly delete large intermediate NumPy arrays
+        del ort_inputs
+        del ort_outputs
+        del logits
+        del probabilities
+        gc.collect() # Add another GC call after processing
         
         return PredictionResponse(
             predicted_class=predicted_class,
             confidence=predicted_probability
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Log the exception for debugging
+        print(f"Error during prediction: {str(e)}")
+        # Optional: include traceback
+        # import traceback
+        # print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Error during prediction: {str(e)}")
 
 @app.get("/")
 async def root():
