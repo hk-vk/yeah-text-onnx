@@ -1,17 +1,22 @@
+import os
+import gc
+import sys
+import importlib.util
+import psutil
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import onnxruntime
 import numpy as np
 import torch
 from transformers import AutoTokenizer
-import os
-import gc
-import sys
-import importlib.util
+
+def log_memory_usage():
+    process = psutil.Process(os.getpid())
+    print(f"Memory usage: {process.memory_info().rss / 1024 / 1024:.2f} MB")
 
 # Server configuration
 HOST = os.getenv("HOST", "0.0.0.0")  # Default to 0.0.0.0 for production
-PORT = int(os.getenv("PORT", 8080))
+PORT = int(os.getenv("PORT", 8080))  # Use Railway's PORT
 
 app = FastAPI(
     title="Malayalam Text Classification API",
@@ -96,6 +101,9 @@ async def load_model():
     global ort_session, tokenizer
     
     try:
+        # Log initial memory usage
+        log_memory_usage()
+        
         # Ensure model exists
         if not ensure_model_exists():
             raise FileNotFoundError(f"Model file not found at {MODEL_PATH} and could not be downloaded")
@@ -109,9 +117,13 @@ async def load_model():
         ort_session = create_model_session(MODEL_PATH)
         print("Model loaded successfully!")
         
-        # Load tokenizer
+        # Load tokenizer with optimized settings
         tokenizer = AutoTokenizer.from_pretrained(MODEL_DIR, local_files_only=True)
         print("Tokenizer loaded successfully!")
+        
+        # Log final memory usage
+        gc.collect()
+        log_memory_usage()
         
     except Exception as e:
         print(f"Error loading model: {str(e)}")

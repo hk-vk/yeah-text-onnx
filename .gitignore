@@ -39,3 +39,5 @@ model/malayalam_model1.onnx
 .env
 *.log
 .DS_Store
+/node_modules/
+
