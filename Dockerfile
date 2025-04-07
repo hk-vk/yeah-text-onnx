@@ -6,32 +6,26 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
-    git \
-    git-lfs \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
-
-# Initialize Git LFS (needed inside the container)
-RUN git lfs install --system
 
 # Copy requirements first for better caching
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application
-# Note: This COPY command needs the repository context to have LFS pointers
 COPY . .
 
-# Pull the LFS files after copying the repo contents
-# This assumes the build context includes the .git directory and LFS pointers
-RUN git lfs pull
-
-# Create model directory (if needed, though LFS should place it correctly)
-# RUN mkdir -p model # This might not be necessary if LFS places the file correctly
-
-# Verify model file exists after LFS pull
-RUN if [ ! -f model/malayalam_model1.onnx ]; then echo "ERROR: LFS file model/malayalam_model1.onnx not found after pull!"; exit 1; fi
-RUN ls -lh model/ # Optional: List contents to check file size in build logs
+# Create model directory and download the model
+RUN mkdir -p model && \
+    echo "Downloading model file..." && \
+    gdown --fuzzy "https://drive.google.com/uc?id=1UfWvrS04ssG3WlDeV_uaqetrSZ70b6cW" -O model/malayalam_model1.onnx && \
+    echo "Verifying model file..." && \
+    if [ ! -f model/malayalam_model1.onnx ]; then \
+        echo "ERROR: Model file not found after download!"; \
+        exit 1; \
+    fi && \
+    ls -lh model/
 
 # Expose the port
 EXPOSE 8080
