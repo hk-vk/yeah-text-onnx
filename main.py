@@ -65,37 +65,6 @@ def create_model_session(model_path):
         providers=providers
     )
 
-def ensure_model_exists():
-    """Check if model exists, if not, try to download it"""
-    if os.path.exists(MODEL_PATH):
-        return True
-    
-    print(f"Model file not found: {MODEL_PATH}")
-    print("Attempting to download the model...")
-    
-    # Try to import the download_model module
-    try:
-        # Check if download_model.py exists
-        if os.path.exists("download_model.py"):
-            # Import the module dynamically
-            spec = importlib.util.spec_from_file_location("download_model", "download_model.py")
-            download_module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(download_module)
-            
-            # Call the check_and_download_model function
-            if download_module.check_and_download_model():
-                print("Model downloaded successfully!")
-                return True
-            else:
-                print("Failed to download the model.")
-                return False
-        else:
-            print("download_model.py not found. Cannot download the model automatically.")
-            return False
-    except Exception as e:
-        print(f"Error downloading model: {str(e)}")
-        return False
-
 @app.on_event("startup")
 async def load_model():
     global ort_session, tokenizer
@@ -104,9 +73,11 @@ async def load_model():
         # Log initial memory usage
         log_memory_usage()
         
-        # Ensure model exists
-        if not ensure_model_exists():
-            raise FileNotFoundError(f"Model file not found at {MODEL_PATH} and could not be downloaded")
+        # Check if the model file exists (should be present via Git LFS)
+        if not os.path.exists(MODEL_PATH):
+            error_msg = f"Model file not found at {MODEL_PATH}. Ensure Git LFS is configured correctly and the file was checked out."
+            print(error_msg)
+            raise FileNotFoundError(error_msg)
         
         print("Loading model...")
         # Force garbage collection before loading
@@ -117,7 +88,9 @@ async def load_model():
         ort_session = create_model_session(MODEL_PATH)
         print("Model loaded successfully!")
         
-        # Load tokenizer with optimized settings
+        # Load tokenizer - assumes tokenizer files are also in MODEL_DIR and tracked by Git
+        # Ensure tokenizer files (config.json, etc.) are NOT ignored by .gitignore
+        print("Loading tokenizer...")
         tokenizer = AutoTokenizer.from_pretrained(MODEL_DIR, local_files_only=True)
         print("Tokenizer loaded successfully!")
         
@@ -125,9 +98,20 @@ async def load_model():
         gc.collect()
         log_memory_usage()
         
+    except FileNotFoundError as e:
+        # Specific handling for model file not found
+        print(f"Startup Error: {str(e)}")
+        # Don't raise HTTPException here, let the server fail to start if model is missing
+        # A running server without a model is not useful.
+        sys.exit(f"Critical error: Model file missing at startup: {MODEL_PATH}")
     except Exception as e:
-        print(f"Error loading model: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to load model: {str(e)}")
+        # Catch other potential errors during startup (e.g., ONNX loading, tokenizer loading)
+        print(f"Error loading model/tokenizer: {str(e)}")
+        # Optional: include traceback
+        # import traceback
+        # print(traceback.format_exc())
+        # Exit prevents the server starting in a broken state
+        sys.exit(f"Critical startup error: {str(e)}")
 
 @app.post("/predict", response_model=PredictionResponse)
 async def predict(request: TextRequest):

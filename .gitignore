@@ -30,7 +30,7 @@ wheels/
 
 # Project specific
 # Exclude large model files
-model/malayalam_model1.onnx
+# model/malayalam_model1.onnx
 # Keep other model files like tokenizer
 !model/
 !model/config.json
