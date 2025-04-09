@@ -11,3 +11,6 @@ tqdm>=4.50.0 # Still needed by gdown potentially, keep for now
 psutil>=5.9.0 # Used for memory logging
 gdown>=4.7.1 # Keep gdown in case LFS fails and we need it as a fallback in streamlit_app
 streamlit>=1.30.0
+fastapi>=0.95.0,<0.110.0
+uvicorn>=0.22.0,<0.28.0
+python-multipart>=0.0.6

@@ -6,6 +6,8 @@ import numpy as np
 import onnxruntime
 import torch # Still needed for tensor creation, though conversion is internal now
 from transformers import AutoTokenizer
+import requests
+import json
 
 # --- Model Configuration ---
 MODEL_DIR = "model"
@@ -64,62 +66,104 @@ def load_onnx_model_and_tokenizer():
 # --- Streamlit App UI --- 
 st.title("Malayalam Text Classification")
 
-# Load model and tokenizer using the cached function
-ort_session, tokenizer = load_onnx_model_and_tokenizer()
+# Create tabs for different functionalities
+tab1, tab2 = st.tabs(["Web Interface", "API Testing"])
 
-text_input = st.text_area("Enter Malayalam Text:", height=150)
+with tab1:
+    # Load model and tokenizer using the cached function
+    ort_session, tokenizer = load_onnx_model_and_tokenizer()
 
-if st.button("Classify Text"):
-    if text_input and ort_session and tokenizer:
+    text_input = st.text_area("Enter Malayalam Text:", height=150)
+
+    if st.button("Classify Text"):
+        if text_input and ort_session and tokenizer:
+            try:
+                st.write("Tokenizing...")
+                # Tokenize 
+                inputs = tokenizer(
+                    text_input,
+                    return_tensors="pt",
+                    truncation=True,
+                    max_length=512,
+                    padding=True
+                )
+                
+                st.write("Preparing inputs for ONNX...")
+                # Prepare input for ONNX runtime
+                ort_inputs = {
+                    'input_ids': inputs['input_ids'].cpu().numpy(),
+                    'attention_mask': inputs['attention_mask'].cpu().numpy(),
+                    'token_type_ids': inputs.get('token_type_ids', torch.zeros_like(inputs['input_ids'])).cpu().numpy()
+                }
+                del inputs # Clean up tensor
+                gc.collect()
+
+                st.write("Running inference...")
+                # Run inference
+                ort_outputs = ort_session.run(None, ort_inputs)
+                del ort_inputs # Clean up input dict
+                gc.collect()
+
+                st.write("Processing results...")
+                # Process the output
+                logits = ort_outputs[0]
+                probabilities = np.exp(logits.astype(np.float32)) / np.sum(np.exp(logits.astype(np.float32)), axis=1, keepdims=True)
+                predicted_class = int(np.argmax(probabilities, axis=1)[0])
+                predicted_probability = float(probabilities[0, predicted_class])
+                del ort_outputs, logits, probabilities # Clean up output arrays
+                gc.collect()
+                
+                st.success("Classification successful!")
+                st.metric(label="Predicted Class", value=predicted_class)
+                st.metric(label="Confidence", value=f"{predicted_probability:.2%}")
+                log_memory_usage() # Log memory after prediction
+                
+            except Exception as e:
+                st.error(f"An error occurred during prediction: {e}")
+        elif not text_input:
+            st.warning("Please enter some text to classify.")
+        else:
+            st.error("Model or Tokenizer not loaded correctly. Check sidebar.")
+
+with tab2:
+    st.header("API Testing")
+    
+    # Get the current URL for the API
+    api_url = st.text_input("API Base URL", value="http://localhost:8080")
+    
+    # Text input for API testing
+    api_text_input = st.text_area("Enter Malayalam Text for API:", height=150)
+    
+    if st.button("Test API"):
+        if api_text_input:
+            try:
+                response = requests.post(
+                    f"{api_url}/classify",
+                    json={"text": api_text_input}
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    st.success("API call successful!")
+                    st.json(result)
+                else:
+                    st.error(f"API Error: {response.status_code} - {response.text}")
+            except Exception as e:
+                st.error(f"Error calling API: {e}")
+        else:
+            st.warning("Please enter some text to test the API.")
+    
+    # Health check button
+    if st.button("Check API Health"):
         try:
-            st.write("Tokenizing...")
-            # Tokenize 
-            inputs = tokenizer(
-                text_input,
-                return_tensors="pt",
-                truncation=True,
-                max_length=512,
-                padding=True
-            )
-            
-            st.write("Preparing inputs for ONNX...")
-            # Prepare input for ONNX runtime
-            ort_inputs = {
-                'input_ids': inputs['input_ids'].cpu().numpy(),
-                'attention_mask': inputs['attention_mask'].cpu().numpy(),
-                'token_type_ids': inputs.get('token_type_ids', torch.zeros_like(inputs['input_ids'])).cpu().numpy()
-            }
-            del inputs # Clean up tensor
-            gc.collect()
-
-            st.write("Running inference...")
-            # Run inference
-            ort_outputs = ort_session.run(None, ort_inputs)
-            del ort_inputs # Clean up input dict
-            gc.collect()
-
-            st.write("Processing results...")
-            # Process the output
-            logits = ort_outputs[0]
-            probabilities = np.exp(logits.astype(np.float32)) / np.sum(np.exp(logits.astype(np.float32)), axis=1, keepdims=True)
-            predicted_class = int(np.argmax(probabilities, axis=1)[0])
-            predicted_probability = float(probabilities[0, predicted_class])
-            del ort_outputs, logits, probabilities # Clean up output arrays
-            gc.collect()
-            
-            st.success("Classification successful!")
-            st.metric(label="Predicted Class", value=predicted_class)
-            st.metric(label="Confidence", value=f"{predicted_probability:.2%}")
-            log_memory_usage() # Log memory after prediction
-            
+            response = requests.get(f"{api_url}/health")
+            if response.status_code == 200:
+                st.success("API is healthy!")
+                st.json(response.json())
+            else:
+                st.error(f"API Health Check Failed: {response.status_code}")
         except Exception as e:
-            st.error(f"An error occurred during prediction: {e}")
-            # import traceback
-            # st.error(traceback.format_exc())
-    elif not text_input:
-        st.warning("Please enter some text to classify.")
-    else:
-        st.error("Model or Tokenizer not loaded correctly. Check sidebar.")
+            st.error(f"Error checking API health: {e}")
 
 # Add a button to clear cache for debugging model loading
 st.sidebar.button("Clear Model Cache", on_click=load_onnx_model_and_tokenizer.clear) 
