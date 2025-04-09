@@ -107,7 +107,11 @@ with tab1:
                 st.write("Processing results...")
                 # Process the output
                 logits = ort_outputs[0]
+                st.write("Raw Logits:", logits)
+                
                 probabilities = np.exp(logits.astype(np.float32)) / np.sum(np.exp(logits.astype(np.float32)), axis=1, keepdims=True)
+                st.write("Probabilities:", probabilities)
+                
                 predicted_class = int(np.argmax(probabilities, axis=1)[0])
                 predicted_probability = float(probabilities[0, predicted_class])
                 del ort_outputs, logits, probabilities # Clean up output arrays
